@@ -762,10 +762,17 @@ class FourierGr1ArmsWaistJointEefDataConfig:
 
 
 class PandaOmronDataConfig:
+    # RoboCasa365 (PandaOmron) camera keys, matching meta/modality.json's video.*
+    # entries. "wrist_view" maps (via modality.json original_key) to
+    # observation.images.robot0_eye_in_hand -- the eye-in-hand wrist camera. The
+    # "wrist" substring routes it to wrist_images (flow action expert only, single
+    # frame) and out of the LAM world-model branch, matching how RoboTwin's
+    # cam_*_wrist views are handled. The two agentview cams are the primary
+    # (multi-frame) views feeding both LAM and flow.
     video_keys = [
+        "video.robot0_agentview_left",
         "video.robot0_agentview_right",
         "video.wrist_view",
-        "video.robot0_agentview_left",
     ]
     state_keys = [
         "state.end_effector_position_relative",

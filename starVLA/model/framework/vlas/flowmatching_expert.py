@@ -559,6 +559,14 @@ class ConditionalFlowMatchingHead(nn.Module):
         pred_velocity_all = self.action_decoder(dit_output, embodiment_id)
         pred_velocity = pred_velocity_all[:, -actions.shape[1] :, :]
         loss_elem = F.mse_loss(pred_velocity, velocity_target, reduction="none")
+        # RoboCasa: the binary gripper dim (concat idx 6) toggles in <3% of steps,
+        # so the flow head collapses it to a constant. Optionally upweight it.
+        import os as _os
+        _gw = float(_os.environ.get("LAWAM_GRIPPER_LOSS_WEIGHT", "1.0"))
+        if _gw != 1.0 and loss_elem.shape[-1] > 6:
+            _w = torch.ones(loss_elem.shape[-1], device=loss_elem.device, dtype=loss_elem.dtype)
+            _w[6] = _gw
+            loss_elem = loss_elem * _w
         valid = actions_mask_f
         robot_valid = (embodiment_id.to(device=device, dtype=torch.long) != 0).to(dtype=model_dtype)
         valid = valid * robot_valid.view(-1, 1, 1)

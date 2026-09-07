@@ -115,6 +115,20 @@ DATASET_NAMED_MIXTURES = {
         ("place_a2b_right", 1.0, "robotwin_joint"),
     ],
 
+    # RoboCasa365 per-task SFT (agent evaluation of LaWAM, not an upstream mixture).
+    # Each points at its own per-task LeRobot v3.0 dataset under /opt/lawam/data/,
+    # converted from the RoboCasa official `target`-split per-task datasets
+    # (h264 video, all 3 views, natural-language task strings, extras/ init states).
+    "robocasa_CloseToasterOvenDoor": [
+        ("robocasa_CloseToasterOvenDoor", 1.0, "PandaOmron"),
+    ],
+    "robocasa_TurnOnMicrowave": [
+        ("robocasa_TurnOnMicrowave", 1.0, "PandaOmron"),
+    ],
+    "robocasa_OpenDrawer": [
+        ("robocasa_OpenDrawer", 1.0, "PandaOmron"),
+    ],
+
     "multi_robot": [
         ("LEROBOT_LIBERO_DATA/libero_10_no_noops_1.0.0_lerobot", 1.0, "libero_franka"),
         # ("OXE_LEROBOT_DATASET/bridge_orig_1.0.0_lerobot", 1.0, "oxe_bridge"),

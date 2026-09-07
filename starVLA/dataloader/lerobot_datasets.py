@@ -10,6 +10,7 @@ from typing import Any, Sequence
 import warnings
 
 import numpy as np
+import pandas as pd
 from omegaconf import OmegaConf
 
 from starVLA.dataloader.gr00t_lerobot.datasets import (
@@ -140,6 +141,63 @@ def _resolve_control_fps(
         return float(default_fps)
 
 
+def _filter_dataset_to_tasks(dataset, dataset_path: Path, task_filter: Sequence[str]) -> None:
+    """Restrict an already-constructed LeRobotSingleDataset to episodes whose
+    `tasks` list (meta/episodes.parquet) matches one of `task_filter`.
+
+    Not an upstream GR00T/LeRobot feature: LeRobotSingleDataset has no native
+    per-task episode filter, and our RoboCasa365 per-task SFT needs one dataset
+    directory (the merged `robocasa_target_human_unified`) split into
+    single-task subsets. This mutates the private trajectory bookkeeping the
+    same way `_build_mode_split_from_trajectories` does, then rebuilds the
+    active-step index -- see `LeRobotSingleDataset.__init__` in
+    `gr00t_lerobot/datasets.py` for the corresponding original sequencing.
+    """
+    task_names = {str(t) for t in task_filter}
+    episodes_path = Path(dataset_path) / "meta" / "episodes.parquet"
+    if not episodes_path.exists():
+        raise FileNotFoundError(
+            f"task_filter={sorted(task_names)} requires {episodes_path}, which does not exist."
+        )
+    episodes_df = pd.read_parquet(episodes_path, columns=["episode_index", "tasks"])
+
+    def _matches(tasks_cell) -> bool:
+        try:
+            names = list(tasks_cell)
+        except TypeError:
+            names = [tasks_cell]
+        return any(str(name) in task_names for name in names)
+
+    keep_ids = set(
+        int(ep) for ep, tasks_cell in zip(episodes_df["episode_index"], episodes_df["tasks"]) if _matches(tasks_cell)
+    )
+    if not keep_ids:
+        raise ValueError(
+            f"task_filter={sorted(task_names)} matched zero episodes in {episodes_path}. "
+            "Check task names against meta/tasks.parquet."
+        )
+
+    keep_mask = np.isin(dataset._all_trajectory_ids, np.array(sorted(keep_ids), dtype=dataset._all_trajectory_ids.dtype))
+    n_before = int(dataset._all_trajectory_ids.shape[0])
+    dataset._all_trajectory_ids = dataset._all_trajectory_ids[keep_mask]
+    dataset._all_trajectory_lengths = dataset._all_trajectory_lengths[keep_mask]
+    n_after = int(dataset._all_trajectory_ids.shape[0])
+    if n_after == 0:
+        raise ValueError(
+            f"task_filter={sorted(task_names)} matched {len(keep_ids)} episode(s) in meta/episodes.parquet "
+            f"but none overlap this dataset's trajectory ids (n_before={n_before})."
+        )
+
+    # Rebuild the train/val split and local step-indexing arrays on the
+    # reduced trajectory set (mirrors the tail of LeRobotSingleDataset.__init__).
+    dataset._build_mode_split_from_trajectories()
+    dataset._build_active_step_indexing()
+    print(
+        f"[LeRobotDataset] task_filter={sorted(task_names)} on {dataset_path.name}: "
+        f"{n_before} -> {n_after} episodes, active_steps={dataset._subset_total_steps}"
+    )
+
+
 def make_LeRobotSingleDataset(
     data_root_dir: Path | str,
     data_name: str,
@@ -237,6 +295,12 @@ def make_LeRobotSingleDataset(
         data_cfg=data_cfg,
         dataset_statistics_override=dataset_statistics_override,
     )
+    task_filter = _cfg_get(data_cfg, "task_filter", None)
+    if task_filter:
+        if isinstance(task_filter, str):
+            task_filter = [task_filter]
+        _filter_dataset_to_tasks(dataset, dataset_path, task_filter)
+
     if hasattr(dataset, "transforms"):
         if _use_training_transforms(mode):
             dataset.transforms.train()
