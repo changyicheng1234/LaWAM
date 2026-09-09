@@ -12,8 +12,11 @@ def _unwrap(m):
 
 
 @torch.no_grad()
-def build_vla_inputs(batch, latent_action_model, processor, device):
-    """就地给 batch 加 input_ids / attention_mask / labels. 返回 batch."""
+def build_vla_inputs(batch, latent_action_model, processor, device, direct=False):
+    """就地给 batch 加 input_ids / attention_mask / labels. 返回 batch.
+
+    direct=True (round-2 `--direct`): prompt 里不放 <ACT_*> token, labels 全 IGNORE
+    -> 没有 vla_ce 监督, action decoder 退回读 prompt 尾部 hidden states."""
     lam = _unwrap(latent_action_model)
     ini = batch["initial_pixel_values"].to(device)
     tgt = batch["target_pixel_values"].to(device)
@@ -47,11 +50,14 @@ def build_vla_inputs(batch, latent_action_model, processor, device):
             prompt = f"What action should the robot take to {instr}?"
         pb = PurePromptBuilder("openvla")
         pb.add_turn("human", prompt)
-        pb.add_turn("gpt", act_tokens)
+        pb.add_turn("gpt", "" if direct else act_tokens)
         ids = tok(pb.get_prompt(), add_special_tokens=True).input_ids
         lbl = list(ids)
         ids, lbl = torch.tensor(ids), torch.tensor(lbl)
-        lbl[: -(len(act_vocab) + 1)] = IGNORE
+        if direct:
+            lbl[:] = IGNORE
+        else:
+            lbl[: -(len(act_vocab) + 1)] = IGNORE
         ids_list.append(ids); lbl_list.append(lbl)
 
     input_ids = pad_sequence(ids_list, batch_first=True, padding_value=tok.pad_token_id)

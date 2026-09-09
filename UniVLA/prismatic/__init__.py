@@ -1,4 +1,11 @@
-from .models import available_model_names, available_models, get_model_description, load
+# The full model/RLDS stack (dlimp, tensorflow_datasets, ...) is optional: the
+# rc365 RoboCasa scripts only use `prismatic.extern.hf.*`,
+# `prismatic.models.policy.transformer_utils` and the prompt builders, none of
+# which need it. Keep the import soft so a lean env still works.
+try:
+    from .models import available_model_names, available_models, get_model_description, load
+except ImportError:
+    pass
 
 
 

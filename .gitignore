@@ -249,3 +249,8 @@ tmp/
 *.log
 qwen3_weights
 .codex_*
+
+# rc365 / LAM staged T5 + recovered pool (big, local-only)
+rc365/t5-base/
+UniVLA/latent_action_model/t5-base
+pool_recovered/

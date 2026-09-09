@@ -1,0 +1,32 @@
+batch_size: 32
+data_root: /opt/rc365_data/robocasa_target_human_unified
+h_hi: 16
+h_lo: 8
+image_channels: 3
+lam_dec_blocks: 12
+lam_dropout: 0.0
+lam_enc_blocks: 12
+lam_latent_dim: 128
+lam_model_dim: 768
+lam_num_heads: 12
+lam_num_latents: 16
+lam_patch_size: 14
+log_interval: 100000
+log_path: /opt/rc365_runs/lam_robocasa/imgs
+make_data_pair: false
+num_workers: 8
+optimizer: !!python/object/apply:functools.partial
+  args:
+  - &id001 !!python/name:torch.optim.adamw.AdamW ''
+  state: !!python/tuple
+  - *id001
+  - !!python/tuple []
+  - lr: 5.0e-05
+    weight_decay: 0.01
+  - null
+resolution: 224
+stage: stage-2
+stage_one_ckpt: null
+task_name: lam_robocasa_ft
+views: left,wrist
+vq_beta: 0.25
